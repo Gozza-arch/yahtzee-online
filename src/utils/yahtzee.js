@@ -22,7 +22,7 @@ export const calculateScores = (dice) => {
     threeOfAKind: counts.some((c) => c >= 3) ? sum : 0,
     fourOfAKind:  counts.some((c) => c >= 4) ? sum : 0,
     fullHouse: counts.some((c) => c === 3) && counts.some((c) => c === 2) ? 25 : 0,
-    smallStraight: uniqueValues >= 4 && (
+    smallStraight: (
       (counts[0] && counts[1] && counts[2] && counts[3]) ||
       (counts[1] && counts[2] && counts[3] && counts[4]) ||
       (counts[2] && counts[3] && counts[4] && counts[5])
@@ -36,6 +36,15 @@ export const calculateScores = (dice) => {
   };
 };
 
+// Catégories section haute
+export const UPPER_CATEGORIES = ["ones", "twos", "threes", "fours", "fives", "sixes"];
+
+// Catégories section basse
+export const LOWER_CATEGORIES = [
+  "threeOfAKind", "fourOfAKind", "fullHouse",
+  "smallStraight", "largeStraight", "yahtzee", "chance"
+];
+
 // Noms des catégories
 export const CATEGORY_NAMES = {
   ones: "As (1)",
@@ -46,9 +55,23 @@ export const CATEGORY_NAMES = {
   sixes: "Six (6)",
   threeOfAKind: "Brelan",
   fourOfAKind: "Carré",
-  fullHouse: "Full (25pts)",
+  fullHouse: "Full House (25pts)",
   smallStraight: "Petite suite (30pts)",
   largeStraight: "Grande suite (40pts)",
-  yahtzee: "Yahtzee! (50pts)",
+  yahtzee: "Yahtzee ! (50pts)",
   chance: "Chance",
+};
+
+// Calculer le total section haute + bonus
+export const calculateUpperBonus = (scores) => {
+  const upperTotal = UPPER_CATEGORIES.reduce((sum, cat) => sum + (scores[cat] || 0), 0);
+  const bonus = upperTotal >= 63 ? 35 : 0;
+  return { upperTotal, bonus };
+};
+
+// Calculer le score total avec bonus
+export const calculateTotalScore = (scores) => {
+  const { upperTotal, bonus } = calculateUpperBonus(scores);
+  const lowerTotal = LOWER_CATEGORIES.reduce((sum, cat) => sum + (scores[cat] || 0), 0);
+  return upperTotal + bonus + lowerTotal;
 };
