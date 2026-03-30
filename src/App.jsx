@@ -4,6 +4,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Game from "./pages/Game";
 import Lobby from "./pages/Lobby";
+import Leaderboard from "./pages/Leaderboard";
 
 function App() {
   return (
@@ -24,6 +25,14 @@ function App() {
           element={
             <PrivateRoute>
               <Game />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/leaderboard"
+          element={
+            <PrivateRoute>
+              <Leaderboard />
             </PrivateRoute>
           }
         />

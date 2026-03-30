@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { createGame, joinGame } from "../utils/gameManager";
+import { logout } from "../utils/auth";
 
 const Lobby = () => {
   const { currentUser, playerProfile } = useAuth();
@@ -33,10 +34,19 @@ const Lobby = () => {
     setLoading(false);
   };
 
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login");
+  };
+
   return (
-    <div style={{ color: "white", textAlign: "center", marginTop: "100px" }}>
+    <div style={{ color: "white", textAlign: "center", marginTop: "80px" }}>
       <h1>🎲 Yahtzee</h1>
       <h2>Bienvenue {playerProfile?.pseudo} !</h2>
+      <p style={{ color: "#aaa" }}>
+        Victoires : {playerProfile?.victories || 0} 🏆 |
+        Parties : {playerProfile?.totalGames || 0} 🎮
+      </p>
 
       {error && <p style={{ color: "red" }}>{error}</p>}
 
@@ -44,7 +54,11 @@ const Lobby = () => {
         <button
           onClick={handleCreate}
           disabled={loading}
-          style={{ padding: "12px 30px", fontSize: "16px", cursor: "pointer", marginBottom: "20px", display: "block", margin: "0 auto 20px" }}
+          style={{
+            padding: "12px 30px", fontSize: "16px",
+            cursor: "pointer", display: "block",
+            margin: "0 auto 20px", width: "200px"
+          }}
         >
           🎮 Créer une partie
         </button>
@@ -64,6 +78,21 @@ const Lobby = () => {
           style={{ padding: "8px 20px", fontSize: "16px", cursor: "pointer" }}
         >
           Rejoindre
+        </button>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
+        <button
+          onClick={() => navigate("/leaderboard")}
+          style={{ padding: "8px 20px", cursor: "pointer" }}
+        >
+          🏆 Classement
+        </button>
+        <button
+          onClick={handleLogout}
+          style={{ padding: "8px 20px", cursor: "pointer", background: "#c0392b", color: "white", border: "none", borderRadius: "4px" }}
+        >
+          🚪 Déconnexion
         </button>
       </div>
     </div>
