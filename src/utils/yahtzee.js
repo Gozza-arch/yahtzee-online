@@ -45,21 +45,20 @@ export const LOWER_CATEGORIES = [
   "smallStraight", "largeStraight", "yahtzee", "chance"
 ];
 
-// Noms des catégories
 export const CATEGORY_NAMES = {
-  ones: "As (1)",
-  twos: "Deux (2)",
-  threes: "Trois (3)",
-  fours: "Quatre (4)",
-  fives: "Cinq (5)",
-  sixes: "Six (6)",
-  threeOfAKind: "Brelan",
-  fourOfAKind: "Carré",
-  fullHouse: "Full House (25pts)",
-  smallStraight: "Petite suite (30pts)",
-  largeStraight: "Grande suite (40pts)",
-  yahtzee: "Yahtzee ! (50pts)",
-  chance: "Chance",
+  ones:         { label: "Un",           desc: "Somme des 1" },
+  twos:         { label: "Deux",         desc: "Somme des 2" },
+  threes:       { label: "Trois",        desc: "Somme des 3" },
+  fours:        { label: "Quatre",       desc: "Somme des 4" },
+  fives:        { label: "Cinq",         desc: "Somme des 5" },
+  sixes:        { label: "Six",          desc: "Somme des 6" },
+  threeOfAKind: { label: "Brelan",       desc: "Somme de tous les dés" },
+  fourOfAKind:  { label: "Carré",        desc: "Somme de tous les dés" },
+  fullHouse:    { label: "Full",         desc: "25 points" },
+  smallStraight:{ label: "Petite suite", desc: "30 points" },
+  largeStraight:{ label: "Grande suite", desc: "40 points" },
+  yahtzee:      { label: "Yahtzee !",    desc: "50 points" },
+  chance:       { label: "Chance",       desc: "Somme de tous les dés" },
 };
 
 // Calculer le total section haute + bonus
