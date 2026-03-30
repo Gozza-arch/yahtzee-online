@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { createGame, joinGame } from "../utils/gameManager";
 import { logout } from "../utils/auth";
+import { BADGES } from "../utils/badges";
 
 const Lobby = () => {
   const { currentUser, playerProfile } = useAuth();
@@ -39,6 +40,8 @@ const Lobby = () => {
     navigate("/login");
   };
 
+  const playerBadges = (playerProfile?.badges || []).map((id) => BADGES[id]).filter(Boolean);
+
   return (
     <div style={{ color: "white", textAlign: "center", marginTop: "80px" }}>
       <h1>🎲 Yahtzee</h1>
@@ -47,6 +50,27 @@ const Lobby = () => {
         Victoires : {playerProfile?.victories || 0} 🏆 |
         Parties : {playerProfile?.totalGames || 0} 🎮
       </p>
+
+      {/* Badges */}
+      {playerBadges.length > 0 && (
+        <div style={{ margin: "10px auto", maxWidth: "400px" }}>
+          <p style={{ color: "#aaa", fontSize: "14px" }}>Mes badges :</p>
+          <div style={{ display: "flex", justifyContent: "center", gap: "10px", flexWrap: "wrap" }}>
+            {playerBadges.map((badge) => (
+              <div
+                key={badge.id}
+                title={badge.description}
+                style={{
+                  background: "#2d3a5a", border: "1px solid gold",
+                  borderRadius: "8px", padding: "6px 12px", fontSize: "14px"
+                }}
+              >
+                {badge.icon} {badge.label}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {error && <p style={{ color: "red" }}>{error}</p>}
 
@@ -90,7 +114,11 @@ const Lobby = () => {
         </button>
         <button
           onClick={handleLogout}
-          style={{ padding: "8px 20px", cursor: "pointer", background: "#c0392b", color: "white", border: "none", borderRadius: "4px" }}
+          style={{
+            padding: "8px 20px", cursor: "pointer",
+            background: "#c0392b", color: "white",
+            border: "none", borderRadius: "4px"
+          }}
         >
           🚪 Déconnexion
         </button>

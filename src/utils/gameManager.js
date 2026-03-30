@@ -6,6 +6,7 @@ import {
   updateDoc,
   onSnapshot,
   getDoc,
+  increment,
 } from "firebase/firestore";
 
 // Créer une nouvelle partie
@@ -65,5 +66,20 @@ export const saveScore = async (gameId, playerUid, category, score, players) => 
     dice: [1, 1, 1, 1, 1],
     kept: [false, false, false, false, false],
     rollsLeft: 3,
+  });
+};
+// Mettre à jour les stats des joueurs après une partie
+export const updatePlayerStats = async (winnerUid, loserUid) => {
+  const winnerRef = doc(db, "players", winnerUid);
+  const loserRef = doc(db, "players", loserUid);
+
+  await updateDoc(winnerRef, {
+    victories: increment(1),
+    totalGames: increment(1),
+  });
+
+  await updateDoc(loserRef, {
+    defeats: increment(1),
+    totalGames: increment(1),
   });
 };

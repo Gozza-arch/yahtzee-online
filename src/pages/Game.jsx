@@ -1,15 +1,50 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { rollDice, calculateScores, CATEGORY_NAMES } from "../utils/yahtzee";
-import { listenToGame, updateDice, saveScore } from "../utils/gameManager";
+import { listenToGame, updateDice, saveScore, updatePlayerStats } from "../utils/gameManager";
+import { checkAndAwardBadges } from "../utils/badges";
+import BadgeNotification from "../components/BadgeNotification";
+
+const TOTAL_CATEGORIES = Object.keys(CATEGORY_NAMES).length;
 
 const Game = () => {
   const { gameId } = useParams();
-  const { currentUser } = useAuth();  
+  const { currentUser, playerProfile } = useAuth();
   const navigate = useNavigate();
   const [game, setGame] = useState(null);
   const [currentScores, setCurrentScores] = useState({});
+  const [newBadges, setNewBadges] = useState([]);
+  const [gameOver, setGameOver] = useState(false);
+  const [winner, setWinner] = useState(null);
+
+  const checkGameOver = useCallback(async (gameData) => {
+    const players = Object.entries(gameData.players);
+    const allDone = players.every(([, player]) =>
+      Object.keys(player.scores).length === TOTAL_CATEGORIES
+    );
+
+    if (allDone && !gameOver) {
+      setGameOver(true);
+      const scores = players.map(([uid, player]) => ({
+        uid,
+        total: Object.values(player.scores).reduce((a, b) => a + b, 0),
+      }));
+      const winnerData = scores.reduce((a, b) => (a.total > b.total ? a : b));
+      const loserData = scores.reduce((a, b) => (a.total < b.total ? a : b));
+      setWinner(winnerData);
+
+      // Mettre à jour les stats
+      await updatePlayerStats(winnerData.uid, loserData.uid);
+
+      // Vérifier les badges
+      const myScores = gameData.players[currentUser.uid]?.scores || {};
+      const isWinner = winnerData.uid === currentUser.uid;
+      const victories = (playerProfile?.victories || 0) + (isWinner ? 1 : 0);
+      const awarded = await checkAndAwardBadges(currentUser.uid, myScores, isWinner, victories);
+      if (awarded.length > 0) setNewBadges(awarded);
+    }
+  }, [gameOver, currentUser.uid, playerProfile]);
 
   useEffect(() => {
     const unsubscribe = listenToGame(gameId, (gameData) => {
@@ -17,21 +52,24 @@ const Game = () => {
       if (gameData.rollsLeft < 3) {
         setCurrentScores(calculateScores(gameData.dice));
       }
+      if (gameData.status === "playing") {
+        checkGameOver(gameData);
+      }
     });
     return unsubscribe;
-  }, [gameId]);
+  }, [gameId, checkGameOver]);
 
   if (!game) return <div style={{ color: "white", textAlign: "center", marginTop: "100px" }}>Chargement...</div>;
 
   const isMyTurn = game.currentTurn === currentUser.uid;
   const myScores = game.players[currentUser.uid]?.scores || {};
   const players = Object.entries(game.players);
+  const shareLink = `${window.location.origin}/game/${gameId}`;
 
   const handleRoll = async () => {
     if (!isMyTurn || game.rollsLeft === 0) return;
     const newDice = rollDice(game.dice, game.kept);
-    const newRollsLeft = game.rollsLeft - 1;
-    await updateDice(gameId, newDice, game.kept, newRollsLeft);
+    await updateDice(gameId, newDice, game.kept, game.rollsLeft - 1);
   };
 
   const toggleKeep = async (i) => {
@@ -49,14 +87,30 @@ const Game = () => {
 
   const totalScore = Object.values(myScores).reduce((a, b) => a + b, 0);
 
-  // Lien à partager
-  const shareLink = `${window.location.origin}/game/${gameId}`;
-
   return (
     <div style={{ color: "white", textAlign: "center", padding: "20px" }}>
+
+      {/* Notification de badges */}
+      {newBadges.length > 0 && (
+        <BadgeNotification badges={newBadges} onClose={() => setNewBadges([])} />
+      )}
+
       <h1>🎲 Yahtzee</h1>
 
-      {/* Statut de la partie */}
+      {/* Fin de partie */}
+      {gameOver && winner && (
+        <div style={{
+          background: winner.uid === currentUser.uid ? "#2d5a2d" : "#5a2d2d",
+          padding: "20px", borderRadius: "12px", marginBottom: "20px"
+        }}>
+          <h2>{winner.uid === currentUser.uid ? "🏆 Tu as gagné !" : "😢 Tu as perdu !"}</h2>
+          <button onClick={() => navigate("/")} style={{ padding: "10px 30px", cursor: "pointer" }}>
+            🏠 Retour au lobby
+          </button>
+        </div>
+      )}
+
+      {/* En attente d'un adversaire */}
       {game.status === "waiting" && (
         <div style={{ background: "#1a1a2e", padding: "15px", borderRadius: "10px", marginBottom: "20px" }}>
           <p>⏳ En attente d'un adversaire...</p>
@@ -71,7 +125,10 @@ const Game = () => {
       {/* Scores des joueurs */}
       <div style={{ display: "flex", justifyContent: "center", gap: "20px", marginBottom: "20px" }}>
         {players.map(([uid, player]) => (
-          <div key={uid} style={{ background: uid === game.currentTurn ? "#2d5a2d" : "#1a1a2e", padding: "10px 20px", borderRadius: "10px" }}>
+          <div key={uid} style={{
+            background: uid === game.currentTurn ? "#2d5a2d" : "#1a1a2e",
+            padding: "10px 20px", borderRadius: "10px"
+          }}>
             <p>{uid === game.currentTurn ? "🎯 " : ""}{player.pseudo}</p>
             <p>{Object.values(player.scores).reduce((a, b) => a + b, 0)} pts</p>
           </div>
