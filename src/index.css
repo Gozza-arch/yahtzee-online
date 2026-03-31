@@ -83,3 +83,16 @@ input:focus {
 .die-shake {
   animation: shakeDie 0.5s ease-in-out;
 }
+.row-scorable {
+  border-left: 3px solid #2ed573 !important;
+  background: rgba(46, 213, 115, 0.05) !important;
+}
+
+.row-scorable:hover {
+  background: rgba(46, 213, 115, 0.12) !important;
+}
+
+.row-zero {
+  border-left: 3px solid transparent !important;
+  opacity: 0.6;
+}

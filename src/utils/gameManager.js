@@ -83,3 +83,10 @@ export const updatePlayerStats = async (winnerUid, loserUid) => {
     totalGames: increment(1),
   });
 };
+// Quitter une partie
+export const leaveGame = async (gameId) => {
+  const gameRef = doc(db, "games", gameId);
+  await updateDoc(gameRef, {
+    status: "abandoned",
+  });
+};
