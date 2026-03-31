@@ -1,0 +1,17 @@
+Manque le BONUS
+Manque la visibilité sur ce que le joueur a joué (voir la fiche du joueur ou colorier ce qu'il a joué)
+Manque le détail sur les coups choisi (par exemple détail de point du brelan ou du carré)
+Historique de coups
+Retirer les quatres dés de 1 avant de jouer. Voir pour un systeme afficahnt "A vous de jouer avant de jouer les dés"
+Surligner ce qu'on peut choisir apres avoir lancé les dés
+Quand un joueur joue, les propositions de points s'affichent aussi pour l'autre. Enlever cela
+En partie. Mettre le bouton retour au lobby dans un endroit plus discret et demander une validation
+Ajouter un calssement pas point en plus du classement de victoires. L'ajouter au résumé en page de garde du joueur
+
+
+
+derniere version :
+
+Historique des coups via un bouton
+Bug les scores du joueur 1 s'affichent dans la colonne du joueur 2.
+La seconde colonne ne s'affiche pas (envoyer screen)
