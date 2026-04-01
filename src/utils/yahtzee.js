@@ -69,8 +69,12 @@ export const calculateUpperBonus = (scores) => {
 };
 
 // Calculer le score total avec bonus
-export const calculateTotalScore = (scores) => {
+export const calculateTotalScore = (scores, yahtzeeBonus = 0) => {
   const { upperTotal, bonus } = calculateUpperBonus(scores);
   const lowerTotal = LOWER_CATEGORIES.reduce((sum, cat) => sum + (scores[cat] || 0), 0);
-  return upperTotal + bonus + lowerTotal;
+  return upperTotal + bonus + lowerTotal + yahtzeeBonus;
+};
+export const isYahtzeeBonus = (dice, scores) => {
+  const isYahtzee = new Set(dice).size === 1;
+  return isYahtzee && scores.yahtzee !== undefined;
 };

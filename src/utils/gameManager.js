@@ -7,6 +7,7 @@ import {
   onSnapshot,
   getDoc,
   arrayUnion,
+  increment,
 } from "firebase/firestore";
 
 export const createGame = async (playerUid, playerPseudo, mode = "classic") => {
@@ -69,7 +70,7 @@ export const updateDice = async (gameId, dice, kept, rollsLeft) => {
   });
 };
 
-export const saveScore = async (gameId, playerUid, category, score, players) => {
+export const saveScore = async (gameId, playerUid, category, score, players, bonusYahtzee = 0) => {
   const gameRef = doc(db, "games", gameId);
   const playerIds = Object.keys(players);
   const nextPlayer = playerIds.find((id) => id !== playerUid) || playerUid;
@@ -83,20 +84,21 @@ const gameComplete = myComplete && otherComplete;
 
 await updateDoc(gameRef, {
   [`players.${playerUid}.scores.${category}`]: score,
+  [`players.${playerUid}.yahtzeeBonus`]: increment(bonusYahtzee),
   currentTurn: myComplete && !otherComplete ? otherPlayerUid : nextPlayer,
   status: gameComplete ? "finished" : "playing",
-    dice: [1, 1, 1, 1, 1],
-    kept: [false, false, false, false, false],
-    rollsLeft: 3,
-    history: arrayUnion({
-      playerUid,
-      pseudo: players[playerUid].pseudo,
-      category,
-      score,
-      dice: [],
-      timestamp: Date.now(),
-    }),
-  });
+  dice: [1, 1, 1, 1, 1],
+  kept: [false, false, false, false, false],
+  rollsLeft: 3,
+  history: arrayUnion({
+    playerUid,
+    pseudo: players[playerUid].pseudo,
+    category,
+    score,
+    dice: [],
+    timestamp: Date.now(),
+  }),
+});
 };
 
 // Quitter une partie

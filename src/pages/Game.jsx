@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { rollDice, calculateScores, CATEGORY_NAMES, UPPER_CATEGORIES, LOWER_CATEGORIES, calculateUpperBonus, calculateTotalScore } from "../utils/yahtzee";
+import { rollDice, calculateScores, CATEGORY_NAMES, UPPER_CATEGORIES, LOWER_CATEGORIES, calculateUpperBonus, calculateTotalScore, isYahtzeeBonus } from "../utils/yahtzee";
 import { listenToGame, updateDice, saveScore, saveTripleScore, leaveGame } from "../utils/gameManager";
 import { checkAndAwardBadges } from "../utils/badges";
 import BadgeNotification from "../components/BadgeNotification";
@@ -100,7 +100,7 @@ const Game = () => {
         uid,
         total: isTriple
           ? calculateTripleTotalScore(player.scores)
-          : calculateTotalScore(player.scores),
+          : calculateTotalScore(player.scores, player.yahtzeeBonus || 0),
       }));
       const winnerData = scores.reduce((a, b) => (a.total > b.total ? a : b));
       const loserData = scores.reduce((a, b) => (a.total < b.total ? a : b));
@@ -139,7 +139,7 @@ const Game = () => {
         playYahtzee();
         launchYahtzeeConfetti();
       }
-      if (gameData.status === "playing") checkGameOver(gameData);
+      if (gameData.status === "playing" || gameData.status === "finished") checkGameOver(gameData);
     });
     return unsubscribe;
   }, [gameId, checkGameOver, playerOrder, navigate]);
@@ -187,19 +187,23 @@ const Game = () => {
     await updateDice(gameId, game.dice, newKept, game.rollsLeft);
   };
 
-  const selectCategory = async (category, grid = null) => {
-    if (!isMyTurn || game.rollsLeft === 3) return;
-    if (isTriple) {
-      const gridScores = myScores[grid] || {};
-      if (gridScores[category] !== undefined) return;
-      await saveTripleScore(gameId, currentUser.uid, category, currentScores[category], grid, game.players);
-    } else {
-      if (myScores[category] !== undefined) return;
-      await saveScore(gameId, currentUser.uid, category, currentScores[category], game.players);
+const selectCategory = async (category, grid = null) => {
+  if (!isMyTurn || game.rollsLeft === 3) return;
+  if (isTriple) {
+    const gridScores = myScores[grid] || {};
+    if (gridScores[category] !== undefined) return;
+    await saveTripleScore(gameId, currentUser.uid, category, currentScores[category], grid, game.players);
+  } else {
+    if (myScores[category] !== undefined) return;
+    const yahtzeeBonus = isYahtzeeBonus(game.dice, myScores) ? 100 : 0;
+    await saveScore(gameId, currentUser.uid, category, currentScores[category], game.players, yahtzeeBonus);
+    if (yahtzeeBonus > 0) {
+      playYahtzee();
+      launchYahtzeeConfetti();
     }
-    setCurrentScores({});
-  };
-
+  }
+  setCurrentScores({});
+};
   const handleLobby = async () => {
     await leaveGame(gameId);
     navigate("/");
@@ -207,7 +211,7 @@ const Game = () => {
 
   const getPlayerTotal = (player) => {
     if (isTriple) return calculateTripleTotalScore(player.scores);
-    return calculateTotalScore(player.scores);
+    return calculateTotalScore(player.scores, player.yahtzeeBonus || 0);
   };
 
   const getRowClass = (key, grid = null) => {
@@ -544,25 +548,112 @@ const Game = () => {
       )}
 
       {/* Fin de partie */}
-      <AnimatePresence>
-        {gameOver && winner && (
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
-            style={{
-              textAlign: "center", padding: "14px",
-              background: winner.uid === currentUser.uid ? "rgba(46,213,115,0.2)" : "rgba(255,71,87,0.2)",
-              borderBottom: `1px solid ${winner.uid === currentUser.uid ? "rgba(46,213,115,0.4)" : "rgba(255,71,87,0.4)"}`,
-              flexShrink: 0,
-            }}
-          >
-            <span style={{ fontSize: "22px", fontWeight: 900 }}>
-              {winner.uid === currentUser.uid ? "🏆 Tu as gagné !" : "😢 Tu as perdu !"}
-            </span>
-            <button onClick={() => navigate("/")} style={{ marginLeft: "16px", padding: "8px 20px", background: "rgba(255,255,255,0.15)", color: "white", fontSize: "15px" }}>
-              🏠 Retour au lobby
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+<AnimatePresence>
+  {gameOver && winner && (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      style={{
+        position: "fixed", inset: 0,
+        background: "rgba(0,0,0,0.85)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        zIndex: 2000,
+      }}
+    >
+      <motion.div
+        initial={{ scale: 0.5, opacity: 0, y: 50 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        transition={{ type: "spring", damping: 15, stiffness: 200, delay: 0.2 }}
+        style={{
+          textAlign: "center",
+          padding: "50px 60px",
+          borderRadius: "24px",
+          background: winner.uid === currentUser.uid
+            ? "linear-gradient(135deg, rgba(46,213,115,0.2), rgba(46,213,115,0.05))"
+            : "linear-gradient(135deg, rgba(255,71,87,0.2), rgba(255,71,87,0.05))",
+          border: `2px solid ${winner.uid === currentUser.uid ? "rgba(46,213,115,0.5)" : "rgba(255,71,87,0.5)"}`,
+          boxShadow: winner.uid === currentUser.uid
+            ? "0 0 60px rgba(46,213,115,0.2)"
+            : "0 0 60px rgba(255,71,87,0.2)",
+          maxWidth: "480px", width: "90%",
+        }}
+      >
+        {/* Trophée animé */}
+        <motion.div
+          animate={{ rotate: [-5, 5, -5], y: [0, -10, 0] }}
+          transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+          style={{ fontSize: "80px", marginBottom: "16px" }}
+        >
+          {winner.uid === currentUser.uid ? "🏆" : "😢"}
+        </motion.div>
+
+        {/* Résultat */}
+        <motion.h2
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          style={{ fontSize: "28px", fontWeight: 900, marginBottom: "8px" }}
+        >
+          {winner.uid === currentUser.uid ? "Victoire !" : "Défaite !"}
+        </motion.h2>
+
+        {/* Nom du gagnant */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          style={{
+            fontSize: "20px", fontWeight: 700,
+            color: "rgba(255,255,255,0.7)", marginBottom: "24px"
+          }}
+        >
+          🎖️ {players.find(([uid]) => uid === winner.uid)?.[1]?.pseudo} remporte la partie !
+        </motion.div>
+
+        {/* Scores finaux */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.6 }}
+          style={{ display: "flex", gap: "16px", justifyContent: "center", marginBottom: "32px" }}
+        >
+          {players.map(([uid, player]) => (
+            <div key={uid} style={{
+              padding: "12px 24px", borderRadius: "12px",
+              background: uid === winner.uid ? "rgba(46,213,115,0.2)" : "rgba(255,255,255,0.05)",
+              border: uid === winner.uid ? "1px solid rgba(46,213,115,0.4)" : "1px solid rgba(255,255,255,0.1)",
+              minWidth: "120px",
+            }}>
+              <div style={{ fontSize: "14px", fontWeight: 700, marginBottom: "4px" }}>
+                {uid === winner.uid ? "🥇 " : "🥈 "}{player.pseudo}
+              </div>
+              <div style={{ fontSize: "22px", fontWeight: 900, color: uid === winner.uid ? "#2ed573" : "white" }}>
+                {getPlayerTotal(player)} pts
+              </div>
+            </div>
+          ))}
+        </motion.div>
+
+        {/* Bouton */}
+        <motion.button
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7 }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => navigate("/")}
+          style={{
+            padding: "14px 40px", fontSize: "18px", fontWeight: 800,
+            background: "linear-gradient(135deg, #7c6af7, #5a4fcf)",
+            color: "white", borderRadius: "12px",
+          }}
+        >
+          🏠 Retour au lobby
+        </motion.button>
+      </motion.div>
+    </motion.div>
+  )}
+</AnimatePresence>
 
       {/* TABLEAU DE SCORE */}
       <div style={{ flex: 1, overflow: "auto", margin: "8px" }}>
@@ -670,6 +761,20 @@ const Game = () => {
                   })
               }
             </tr>
+            {/* Bonus Yahtzee */}
+{players.some(([, p]) => (p.scores?.yahtzeeBonus || 0) > 0) && (
+  <tr style={{ background: "rgba(255,215,0,0.08)" }}>
+    <td style={{ padding: "8px 20px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+      <div style={{ fontSize: "15px", fontWeight: 700 }}>🎲 Bonus Yahtzee</div>
+      <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.35)" }}>+100 pts par Yahtzee supplémentaire</div>
+    </td>
+    {players.map(([uid, player]) => (
+      <td key={uid} style={{ textAlign: "center", fontWeight: 800, fontSize: "15px", color: "#ffd700", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+        {player.scores?.yahtzeeBonus > 0 ? `+${player.scores.yahtzeeBonus}` : "-"}
+      </td>
+    ))}
+  </tr>
+)}
 
             <tr>
               <td colSpan={isTriple ? players.length * 3 + 1 : players.length + 1} style={{ padding: "5px 20px", background: "rgba(124,106,247,0.15)", fontSize: "12px", fontWeight: 800, letterSpacing: "1px", color: "#a89af7", textTransform: "uppercase" }}>
@@ -707,7 +812,7 @@ const Game = () => {
                   ))
                 : players.map(([uid, player]) => (
                     <td key={uid} style={{ textAlign: "center", fontWeight: 900, fontSize: "22px", color: "#a89af7" }}>
-                      {calculateTotalScore(player.scores || {})}
+                      {calculateTotalScore(player.scores || {}, player.yahtzeeBonus || 0)}
                     </td>
                   ))
               }
