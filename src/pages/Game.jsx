@@ -125,13 +125,21 @@ const Game = () => {
 
   useEffect(() => {
     const unsubscribe = listenToGame(gameId, (gameData) => {
-      if (!playerOrder && gameData.players) {
-        setPlayerOrder(Object.keys(gameData.players));
-      }
-      if (gameData.status === "abandoned") {
-        navigate("/");
-        return;
-      }
+      if (gameData.players) {
+  const keys = Object.keys(gameData.players);
+  if (!playerOrder || keys.length > (playerOrder?.length || 0)) {
+    // Créateur toujours en premier
+    const creator = gameData.creatorUid;
+    const ordered = creator
+      ? [creator, ...keys.filter(k => k !== creator)]
+      : keys;
+    setPlayerOrder(ordered);
+  }
+}
+      if (gameData.status === "playing" && !game) {
+  setGame(gameData);
+  return;
+}
       setGame(gameData);
       const scores = gameData.rollsLeft < 3 ? calculateScores(gameData.dice) : {};
       setCurrentScores(scores);
@@ -155,7 +163,13 @@ const Game = () => {
   const myScores = game.players[currentUser.uid]?.scores || {};
   const activeTurnUid = game.currentTurn;
   const orderedPlayers = playerOrder || Object.keys(game.players);
-  const players = orderedPlayers.map(uid => [uid, game.players[uid]]).filter(([, p]) => p);
+const playersRaw = orderedPlayers.map(uid => [uid, game.players[uid]]).filter(([, p]) => p);
+// Le joueur connecté toujours à gauche
+const players = playersRaw.sort((a, b) => {
+  if (a[0] === currentUser.uid) return -1;
+  if (b[0] === currentUser.uid) return 1;
+  return 0;
+});
   const { upperTotal, bonus } = isTriple ? { upperTotal: 0, bonus: 0 } : calculateUpperBonus(myScores);
 
  const handleRoll = async () => {
@@ -450,19 +464,35 @@ const selectCategory = async (category, grid = null) => {
 
         <div style={{ display: "flex", alignItems: "center", gap: "14px", flex: 1, justifyContent: "center" }}>
           <div style={{ position: "relative" }}>
-            <div style={{ display: "flex", gap: "10px" }}>
-              {game.dice.map((die, i) => (
-                <Die key={i} value={die} kept={game.kept[i]} onClick={() => toggleKeep(i)} isMyTurn={isMyTurn} rolling={rolling} />
-              ))}
-            </div>
-            {!isMyTurn && (
-              <div style={{
-                position: "absolute", inset: 0,
-                background: "rgba(180, 30, 30, 0.25)",
-                borderRadius: "10px", pointerEvents: "none",
-              }} />
-            )}
-          </div>
+  {isMyTurn && game.rollsLeft === 3 ? (
+    <div style={{
+      display: "flex", alignItems: "center", justifyContent: "center",
+      width: "100%", height: "70px",
+      background: "linear-gradient(135deg, rgba(124,106,247,0.2), rgba(90,79,207,0.2))",
+      border: "2px dashed rgba(124,106,247,0.5)",
+      borderRadius: "12px", padding: "0 24px",
+      fontSize: "16px", fontWeight: 800, color: "#a89af7",
+      whiteSpace: "nowrap",
+    }}>
+      🎲 À vous de jouer !
+    </div>
+  ) : (
+    <>
+      <div style={{ display: "flex", gap: "10px" }}>
+        {game.dice.map((die, i) => (
+          <Die key={i} value={die} kept={game.kept[i]} onClick={() => toggleKeep(i)} isMyTurn={isMyTurn} rolling={rolling} />
+        ))}
+      </div>
+      {!isMyTurn && (
+        <div style={{
+          position: "absolute", inset: 0,
+          background: "rgba(180, 30, 30, 0.25)",
+          borderRadius: "10px", pointerEvents: "none",
+        }} />
+      )}
+    </>
+  )}
+</div>
           <motion.button
             whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
             onClick={handleRoll}
@@ -642,9 +672,8 @@ const selectCategory = async (category, grid = null) => {
 </AnimatePresence>
 
       {/* TABLEAU DE SCORE */}
-      <div style={{ flex: 1, overflow: "auto", margin: "8px" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
-          <colgroup>
+      <div style={{ flex: 1, overflow: "auto", margin: "8px", display: "flex", justifyContent: "center" }}>
+        <table style={{ width: isTriple ? `${560 + players.length * 3 * 190}px` : `${560 + players.length * 310}px`, borderCollapse: "collapse", tableLayout: "fixed", minWidth: "600px" }}>          <colgroup>
             <col style={{ width: isTriple ? "25%" : "40%" }} />
             {players.map(([uid]) =>
               isTriple
@@ -683,22 +712,28 @@ const selectCategory = async (category, grid = null) => {
             </tr>
             {/* Ligne multiplicateurs en mode triple */}
             {isTriple && (
-              <tr>
-                <th style={{ padding: "4px 20px", background: "rgba(255,255,255,0.05)", fontSize: "11px", color: "rgba(255,255,255,0.3)" }} />
-                {players.map(([uid]) =>
-                  GRIDS.map(g => (
-                    <th key={`${uid}-${g}-header`} style={{
-                      padding: "4px 8px", textAlign: "center", fontSize: "12px", fontWeight: 800,
-                      background: "rgba(255,255,255,0.05)",
-                      color: g === "grid1" ? "rgba(255,255,255,0.6)" : g === "grid2" ? "#ffd700" : "#ff6b6b",
-                      borderLeft: g === "grid1" ? "2px solid rgba(255,255,255,0.1)" : "none",
-                    }}>
-                      x{GRID_MULTIPLIERS[g]}
-                    </th>
-                  ))
-                )}
-              </tr>
-            )}
+  <tr>
+    <th style={{ padding: "6px 20px", background: "rgba(0,0,0,0.3)", fontSize: "11px", color: "rgba(255,255,255,0.3)" }} />
+    {players.map(([uid]) =>
+      GRIDS.map(g => (
+        <th key={`${uid}-${g}-header`} style={{
+          padding: "8px 8px", textAlign: "center", fontSize: "13px", fontWeight: 900,
+          background: g === "grid1"
+            ? "rgba(100,180,255,0.15)"
+            : g === "grid2"
+            ? "rgba(255,215,0,0.15)"
+            : "rgba(255,100,100,0.15)",
+          color: g === "grid1" ? "#64b4ff" : g === "grid2" ? "#ffd700" : "#ff6464",
+          borderLeft: g === "grid1" ? "2px solid rgba(255,255,255,0.1)" : "none",
+          borderBottom: `2px solid ${g === "grid1" ? "#64b4ff" : g === "grid2" ? "#ffd700" : "#ff6464"}`,
+          letterSpacing: "1px",
+        }}>
+          ×{GRID_MULTIPLIERS[g]}
+        </th>
+      ))
+    )}
+  </tr>
+)}
           </thead>
           <tbody>
             <tr>

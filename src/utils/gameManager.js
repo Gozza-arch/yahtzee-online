@@ -14,8 +14,9 @@ export const createGame = async (playerUid, playerPseudo, mode = "classic", play
   const isTriple = mode === "triple";
   const gameRef = await addDoc(collection(db, "games"), {
     status: "waiting",
-    mode,
-    players: {
+mode,
+creatorUid: playerUid,
+players: {
       [playerUid]: { pseudo: playerPseudo, avatar: playerAvatar, scores: isTriple ? { grid1: {}, grid2: {}, grid3: {} } : {}, ready: true },
     },
     currentTurn: playerUid,
