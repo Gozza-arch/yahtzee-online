@@ -160,20 +160,6 @@ const Game = () => {
 
  const handleRoll = async () => {
   if (!isMyTurn || game.rollsLeft === 0) return;
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.type = "triangle";
-    osc.frequency.setValueAtTime(300, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.15);
-    gain.gain.setValueAtTime(0.2, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.15);
-  } catch (_e) { /* ignore audio errors */ }
   setRolling(true);
   setTimeout(() => setRolling(false), 500);
   const newDice = rollDice(game.dice, game.kept);
