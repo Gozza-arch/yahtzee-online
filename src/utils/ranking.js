@@ -40,6 +40,16 @@ export const getLeaderboardTriple = async () => {
   return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
 };
 
+export const getLeaderboardTriplePoints = async () => {
+  const q = query(
+    collection(db, "players"),
+    orderBy("triplePoints", "desc"),
+    limit(100)
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+};
+
 export const updatePlayerStats = async (winnerUid, loserUid, points, mode) => {
   const winnerRef = doc(db, "players", winnerUid);
   const loserRef = doc(db, "players", loserUid);
@@ -60,6 +70,8 @@ export const updatePlayerStats = async (winnerUid, loserUid, points, mode) => {
     winnerUpdate.tripleVictories = increment(1);
     winnerUpdate.tripleGames = increment(1);
     loserUpdate.tripleGames = increment(1);
+    winnerUpdate.triplePoints = increment(points.winner);
+    loserUpdate.triplePoints = increment(points.loser);
   }
 
   await updateDoc(winnerRef, winnerUpdate);
