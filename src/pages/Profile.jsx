@@ -14,17 +14,23 @@ const Profile = () => {
   const [saved, setSaved] = useState(false);
 
   const handleSave = async () => {
-  setTheme(selectedTheme);
-  setAvatar(selectedAvatar);
-  if (currentUser) {
-    await updateDoc(doc(db, "players", currentUser.uid), {
-      avatar: selectedAvatar,
-    });
-  }
-  setSaved(true);
-  setTimeout(() => setSaved(false), 2000);
-  window.location.reload();
-};
+    setTheme(selectedTheme);
+    setAvatar(selectedAvatar);
+    const theme = THEMES[selectedTheme] || THEMES.default;
+    document.body.style.background = theme.background;
+    document.documentElement.style.setProperty("--accent", theme.accent);
+    if (currentUser) {
+      try {
+        await updateDoc(doc(db, "players", currentUser.uid), {
+          avatar: selectedAvatar,
+        });
+      } catch (e) {
+        console.error("Erreur sauvegarde profil:", e);
+      }
+    }
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
 
   return (
     <div style={{ minHeight: "100vh", padding: "40px 20px", maxWidth: "600px", margin: "0 auto" }}>

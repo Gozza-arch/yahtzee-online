@@ -14,9 +14,9 @@ export const createGame = async (playerUid, playerPseudo, mode = "classic", play
   const isTriple = mode === "triple";
   const gameRef = await addDoc(collection(db, "games"), {
     status: "waiting",
-mode,
-creatorUid: playerUid,
-players: {
+    mode,
+    creatorUid: playerUid,
+    players: {
       [playerUid]: { pseudo: playerPseudo, avatar: playerAvatar, scores: isTriple ? { grid1: {}, grid2: {}, grid3: {} } : {}, ready: true },
     },
     currentTurn: playerUid,
@@ -72,13 +72,13 @@ export const saveScore = async (gameId, playerUid, category, score, players, bon
   const nextPlayer = playerIds.find((id) => id !== playerUid) || playerUid;
 
   const myScores = { ...(players[playerUid]?.scores || {}), [category]: score };
-const myComplete = Object.keys(myScores).length === 13;
-const otherPlayerUid = nextPlayer;
-const otherScores = players[otherPlayerUid]?.scores || {};
-const otherComplete = Object.keys(otherScores).length === 13;
-const gameComplete = myComplete && otherComplete;
+  const myComplete = Object.keys(myScores).length === 13;
+  const otherPlayerUid = nextPlayer;
+  const otherScores = players[otherPlayerUid]?.scores || {};
+  const otherComplete = Object.keys(otherScores).length === 13;
+  const gameComplete = myComplete && otherComplete;
 
-await updateDoc(gameRef, {
+  await updateDoc(gameRef, {
   [`players.${playerUid}.scores.${category}`]: score,
   [`players.${playerUid}.yahtzeeBonus`]: increment(bonusYahtzee),
   currentTurn: myComplete && !otherComplete ? otherPlayerUid : nextPlayer,
@@ -116,22 +116,21 @@ export const saveTripleScore = async (gameId, playerUid, category, score, grid, 
 
   const totalCategories = 13;
   const myAllComplete = ["grid1", "grid2", "grid3"].every(g =>
-  Object.keys(g === grid ? updatedGrid : currentGrids[g] || {}).length === totalCategories
-);
+    Object.keys(g === grid ? updatedGrid : currentGrids[g] || {}).length === totalCategories
+  );
 
-// Vérifier si l'adversaire a aussi tout rempli
-const otherPlayerUid = nextPlayer;
-const otherGrids = players[otherPlayerUid]?.scores || {};
-const otherAllComplete = ["grid1", "grid2", "grid3"].every(g =>
-  Object.keys(otherGrids[g] || {}).length === totalCategories
-);
+  const otherPlayerUid = nextPlayer;
+  const otherGrids = players[otherPlayerUid]?.scores || {};
+  const otherAllComplete = ["grid1", "grid2", "grid3"].every(g =>
+    Object.keys(otherGrids[g] || {}).length === totalCategories
+  );
 
-const gameComplete = myAllComplete && otherAllComplete;
+  const gameComplete = myAllComplete && otherAllComplete;
 
-await updateDoc(gameRef, {
-  [`players.${playerUid}.scores.${grid}.${category}`]: score,
-  currentTurn: myAllComplete && !otherAllComplete ? otherPlayerUid : nextPlayer,
-  status: gameComplete ? "finished" : "playing",
+  await updateDoc(gameRef, {
+    [`players.${playerUid}.scores.${grid}.${category}`]: score,
+    currentTurn: myAllComplete && !otherAllComplete ? otherPlayerUid : nextPlayer,
+    status: gameComplete ? "finished" : "playing",
     dice: [1, 1, 1, 1, 1],
     kept: [false, false, false, false, false],
     rollsLeft: 3,

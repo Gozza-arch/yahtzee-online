@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { rollDice, calculateScores, CATEGORY_NAMES, UPPER_CATEGORIES, LOWER_CATEGORIES, calculateUpperBonus, calculateTotalScore, isYahtzeeBonus } from "../utils/yahtzee";
@@ -80,6 +80,7 @@ const Game = () => {
   const [playerOrder, setPlayerOrder] = useState(null);
   const [showLobbyConfirm, setShowLobbyConfirm] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const gameInitialized = useRef(false);
 
   const checkGameOver = useCallback(async (gameData) => {
     const players = Object.entries(gameData.players);
@@ -126,20 +127,20 @@ const Game = () => {
   useEffect(() => {
     const unsubscribe = listenToGame(gameId, (gameData) => {
       if (gameData.players) {
-  const keys = Object.keys(gameData.players);
-  if (!playerOrder || keys.length > (playerOrder?.length || 0)) {
-    // Créateur toujours en premier
-    const creator = gameData.creatorUid;
-    const ordered = creator
-      ? [creator, ...keys.filter(k => k !== creator)]
-      : keys;
-    setPlayerOrder(ordered);
-  }
-}
-      if (gameData.status === "playing" && !game) {
-  setGame(gameData);
-  return;
-}
+        const keys = Object.keys(gameData.players);
+        if (!playerOrder || keys.length > (playerOrder?.length || 0)) {
+          const creator = gameData.creatorUid;
+          const ordered = creator
+            ? [creator, ...keys.filter(k => k !== creator)]
+            : keys;
+          setPlayerOrder(ordered);
+        }
+      }
+      if (gameData.status === "playing" && !gameInitialized.current) {
+        gameInitialized.current = true;
+        setGame(gameData);
+        return;
+      }
       setGame(gameData);
       const scores = gameData.rollsLeft < 3 ? calculateScores(gameData.dice) : {};
       setCurrentScores(scores);
@@ -163,22 +164,21 @@ const Game = () => {
   const myScores = game.players[currentUser.uid]?.scores || {};
   const activeTurnUid = game.currentTurn;
   const orderedPlayers = playerOrder || Object.keys(game.players);
-const playersRaw = orderedPlayers.map(uid => [uid, game.players[uid]]).filter(([, p]) => p);
-// Le joueur connecté toujours à gauche
-const players = playersRaw.sort((a, b) => {
-  if (a[0] === currentUser.uid) return -1;
-  if (b[0] === currentUser.uid) return 1;
-  return 0;
-});
+  const playersRaw = orderedPlayers.map(uid => [uid, game.players[uid]]).filter(([, p]) => p);
+  const players = playersRaw.sort((a, b) => {
+    if (a[0] === currentUser.uid) return -1;
+    if (b[0] === currentUser.uid) return 1;
+    return 0;
+  });
   const { upperTotal, bonus } = isTriple ? { upperTotal: 0, bonus: 0 } : calculateUpperBonus(myScores);
 
- const handleRoll = async () => {
-  if (!isMyTurn || game.rollsLeft === 0) return;
-  setRolling(true);
-  setTimeout(() => setRolling(false), 500);
-  const newDice = rollDice(game.dice, game.kept);
-  await updateDice(gameId, newDice, game.kept, game.rollsLeft - 1);
-};
+  const handleRoll = async () => {
+    if (!isMyTurn || game.rollsLeft === 0) return;
+    setRolling(true);
+    setTimeout(() => setRolling(false), 500);
+    const newDice = rollDice(game.dice, game.kept);
+    await updateDice(gameId, newDice, game.kept, game.rollsLeft - 1);
+  };
 
   const toggleKeep = async (i) => {
     if (!isMyTurn || game.rollsLeft === 3) return;
@@ -266,33 +266,32 @@ const selectCategory = async (category, grid = null) => {
         }}
       >
         {pScored
-          ? `${pScored ? gridScores[key] * multiplier : 0}`
+          ? `${gridScores[key] * multiplier}`
           : preview !== undefined ? `+${preview * multiplier}` : "-"}
       </td>
     );
   };
 
   const renderBonusTripleCell = (uid, player, grid) => {
-  const gridScores = (player.scores || {})[grid] || {};
-  const upperTotal = UPPER_CATEGORIES.reduce((sum, cat) => sum + (gridScores[cat] || 0), 0);
-  const hasBonus = upperTotal >= 63;
-  const multiplier = GRID_MULTIPLIERS[grid];
-  const missing = (63 - upperTotal) * multiplier;
-
-  return (
-    <td key={`${uid}-${grid}-bonus`} style={{
-      textAlign: "center", padding: "8px 12px",
-      borderBottom: "1px solid rgba(255,255,255,0.1)",
-      borderTop: "1px solid rgba(255,255,255,0.1)",
-      borderLeft: grid === "grid1" ? "2px solid rgba(255,255,255,0.1)" : "none",
-      fontWeight: 800,
-      color: hasBonus ? "#2ed573" : "rgba(255,255,255,0.4)",
-      fontSize: "13px",
-    }}>
-      {hasBonus ? `+${35 * multiplier}` : `(-${missing})`}
-    </td>
-  );
-};
+    const gridScores = (player.scores || {})[grid] || {};
+    const upperTotal = UPPER_CATEGORIES.reduce((sum, cat) => sum + (gridScores[cat] || 0), 0);
+    const hasBonus = upperTotal >= 63;
+    const multiplier = GRID_MULTIPLIERS[grid];
+    const missing = (63 - upperTotal) * multiplier;
+    return (
+      <td key={`${uid}-${grid}-bonus`} style={{
+        textAlign: "center", padding: "8px 12px",
+        borderBottom: "1px solid rgba(255,255,255,0.1)",
+        borderTop: "1px solid rgba(255,255,255,0.1)",
+        borderLeft: grid === "grid1" ? "2px solid rgba(255,255,255,0.1)" : "none",
+        fontWeight: 800,
+        color: hasBonus ? "#2ed573" : "rgba(255,255,255,0.4)",
+        fontSize: "13px",
+      }}>
+        {hasBonus ? `+${35 * multiplier}` : `(-${missing})`}
+      </td>
+    );
+  };
 
   return (
     <div style={{
@@ -426,15 +425,16 @@ const selectCategory = async (category, grid = null) => {
   )}
 </AnimatePresence>
 
+      
       {/* BARRE DU HAUT */}
-      <div style={{
+      <div className="game-topbar" style={{
         background: "rgba(0,0,0,0.4)",
         borderBottom: "1px solid rgba(255,255,255,0.1)",
         padding: "12px 24px",
         display: "flex", alignItems: "center", justifyContent: "space-between",
         flexShrink: 0, gap: "16px",
       }}>
-<div style={{ display: "flex", gap: "12px", flexShrink: 0, alignItems: "center" }}>
+<div className="game-players" style={{ display: "flex", gap: "12px", flexShrink: 0, alignItems: "center" }}>
           {players.map(([uid, player]) => (
             <div key={uid} style={{
               padding: "10px 22px", borderRadius: "12px",
@@ -462,7 +462,7 @@ const selectCategory = async (category, grid = null) => {
           </button>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "14px", flex: 1, justifyContent: "center" }}>
+        <div className="game-dice" style={{ display: "flex", alignItems: "center", gap: "14px", flex: 1, justifyContent: "center" }}>
           <div style={{ position: "relative" }}>
   {isMyTurn && game.rollsLeft === 3 ? (
     <div style={{
@@ -509,7 +509,7 @@ const selectCategory = async (category, grid = null) => {
           </motion.button>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "8px", flexShrink: 0 }}>
+        <div className="game-lobby-btn" style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "8px", flexShrink: 0 }}>
           {game.status === "waiting" && (
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)" }}>⏳ En attente...</span>
@@ -673,7 +673,7 @@ const selectCategory = async (category, grid = null) => {
 
       {/* TABLEAU DE SCORE */}
       <div style={{ flex: 1, overflow: "auto", margin: "8px", display: "flex", justifyContent: "center" }}>
-        <table style={{ width: isTriple ? `${560 + players.length * 3 * 190}px` : `${560 + players.length * 310}px`, borderCollapse: "collapse", tableLayout: "fixed", minWidth: "600px" }}>          <colgroup>
+        <table className="game-table" style={{ width: isTriple ? `${560 + players.length * 3 * 190}px` : `${560 + players.length * 310}px`, borderCollapse: "collapse", tableLayout: "fixed", minWidth: "600px" }}>          <colgroup>
             <col style={{ width: isTriple ? "25%" : "40%" }} />
             {players.map(([uid]) =>
               isTriple
@@ -752,7 +752,7 @@ const selectCategory = async (category, grid = null) => {
                 >
                   <td style={{ padding: "10px 20px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                     <div style={{ fontSize: "15px", fontWeight: 700 }}>{cat.label}</div>
-                    <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.35)" }}>{cat.desc}</div>
+                    <div className="cat-desc" style={{ fontSize: "12px", color: "rgba(255,255,255,0.35)" }}>{cat.desc}</div>
                   </td>
                   {isTriple
                     ? players.map(([uid, player]) => GRIDS.map(g => renderTripleCell(uid, player, key, g)))
@@ -766,7 +766,7 @@ const selectCategory = async (category, grid = null) => {
             <tr style={{ background: "rgba(255,255,255,0.02)" }}>
               <td style={{ padding: "10px 20px", borderBottom: "1px solid rgba(255,255,255,0.1)", borderTop: "1px solid rgba(255,255,255,0.1)" }}>
                 <div style={{ fontSize: "15px", fontWeight: 700 }}>🎁 Bonus</div>
-                <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.35)" }}>
+                <div className="cat-desc" style={{ fontSize: "12px", color: "rgba(255,255,255,0.35)" }}>
                   {isTriple ? "35 pts si ≥ 63 (par grille)" : `35 pts si ≥ 63 — ${upperTotal}/63 ${bonus === 0 ? `(encore ${63 - upperTotal} pts)` : ""}`}
                 </div>
               </td>
@@ -783,19 +783,19 @@ const selectCategory = async (category, grid = null) => {
               }
             </tr>
             {/* Bonus Yahtzee */}
-{players.some(([, p]) => (p.scores?.yahtzeeBonus || 0) > 0) && (
-  <tr style={{ background: "rgba(255,215,0,0.08)" }}>
-    <td style={{ padding: "8px 20px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-      <div style={{ fontSize: "15px", fontWeight: 700 }}>🎲 Bonus Yahtzee</div>
-      <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.35)" }}>+100 pts par Yahtzee supplémentaire</div>
-    </td>
-    {players.map(([uid, player]) => (
-      <td key={uid} style={{ textAlign: "center", fontWeight: 800, fontSize: "15px", color: "#ffd700", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-        {player.scores?.yahtzeeBonus > 0 ? `+${player.scores.yahtzeeBonus}` : "-"}
-      </td>
-    ))}
-  </tr>
-)}
+            {players.some(([, p]) => (p.yahtzeeBonus || 0) > 0) && (
+              <tr style={{ background: "rgba(255,215,0,0.08)" }}>
+                <td style={{ padding: "8px 20px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                  <div style={{ fontSize: "15px", fontWeight: 700 }}>🎲 Bonus Yahtzee</div>
+                  <div className="cat-desc" style={{ fontSize: "12px", color: "rgba(255,255,255,0.35)" }}>+100 pts par Yahtzee supplémentaire</div>
+                </td>
+                {players.map(([uid, player]) => (
+                  <td key={uid} style={{ textAlign: "center", fontWeight: 800, fontSize: "15px", color: "#ffd700", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                    {player.yahtzeeBonus > 0 ? `+${player.yahtzeeBonus}` : "-"}
+                  </td>
+                ))}
+              </tr>
+            )}
 
             <tr>
               <td colSpan={isTriple ? players.length * 3 + 1 : players.length + 1} style={{ padding: "5px 20px", background: "rgba(124,106,247,0.15)", fontSize: "12px", fontWeight: 800, letterSpacing: "1px", color: "#a89af7", textTransform: "uppercase" }}>
@@ -813,7 +813,7 @@ const selectCategory = async (category, grid = null) => {
                 >
                   <td style={{ padding: "10px 20px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                     <div style={{ fontSize: "15px", fontWeight: 700 }}>{cat.label}</div>
-                    <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.35)" }}>{cat.desc}</div>
+                    <div className="cat-desc" style={{ fontSize: "12px", color: "rgba(255,255,255,0.35)" }}>{cat.desc}</div>
                   </td>
                   {isTriple
                     ? players.map(([uid, player]) => GRIDS.map(g => renderTripleCell(uid, player, key, g)))
